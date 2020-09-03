@@ -1,0 +1,20 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'com.github.johnrengelman.shadow' version '4.0.4'
+}
+mainClassName = "Main"
+group 'org.iesa'
+version '1.0-SNAPSHOT'
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+    jcenter()
+}
+
+dependencies {
+    compile 'net.dv8tion:JDA:4.2.0_200'
+    compile 'com.vdurmont:emoji-java:5.1.1'
+}

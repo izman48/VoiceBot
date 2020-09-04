@@ -64,16 +64,18 @@ public class Main extends ListenerAdapter {
     public void onGuildVoiceMove(GuildVoiceMoveEvent event) {
 //        System.out.println("Moved");
         Guild guild = event.getGuild();
-        VoiceChannel vc = event.getChannelLeft();
+        VoiceChannel vcLeft = event.getChannelLeft();
+        VoiceChannel vcJoined = event.getChannelJoined();
+
         try {
-            removeChannel(guild, vc);
+            removeChannel(guild, vcLeft);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
 
-        vc = event.getChannelJoined();
+
         try {
-            addChannel(guild, vc);
+            addChannel(guild, vcJoined);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -127,8 +129,6 @@ public class Main extends ListenerAdapter {
                     currentVC.getManager().setName(channelName).complete();
 //                    System.out.println(currentVC.getName());
                     vcNew.add(currentVC);
-
-//                    Thread.sleep(1000);
                 } else {
 
                     if (currentVC.getMembers().size() == 0) {
@@ -164,6 +164,7 @@ public class Main extends ListenerAdapter {
         } else {
             name = ogName;
         }
+        VoiceChannel ogVC = guild.getVoiceChannelsByName(name,false).get(0);
 //        System.out.println(name);
 
         // if map contains name of og vc (ex: "General")
@@ -173,22 +174,16 @@ public class Main extends ListenerAdapter {
             VoiceChannel[] arrayofChannels = currentChannels.toArray(new VoiceChannel[currentChannels.size()]);
 
             // check if jumping into ogName means we need to create a new VC
-            for (VoiceChannel channel : arrayofChannels) {
-//                System.out.println(channel.getName());
-            }
+            VoiceChannel lastChannel = arrayofChannels[arrayofChannels.length-1];
+            if ((lastChannel.getId().equals(vc.getId()) && ogVC.getMembers().size() != 0) || (ogName.equals(name) && lastChannel.getMembers().size() != 0)){
 
-            if (!arrayofChannels[arrayofChannels.length-1].getId().equals(vc.getId()) ){
-                VoiceChannel vcFromList = arrayofChannels[arrayofChannels.length -1];
-//                System.out.println(vcFromList.getName());
-                // if the next channel is already created
-                return;
-            } else {
                 String channelName = name + ' ' + (arrayofChannels.length + 1);
                 VoiceChannel newVC = vc.createCopy(guild).setName(channelName).complete();
-                newVC.getManager().setPosition(vc.getPosition()).complete();
+                newVC.getManager().setPosition(ogVC.getPosition() + arrayofChannels.length-1).complete();
                 currentChannels.add(newVC);
 //                System.out.println("added channel " + channelName);
-//                    Thread.sleep(1000);
+            } else {
+                return;
             }
 
         } else {
@@ -200,7 +195,6 @@ public class Main extends ListenerAdapter {
             vcList.add(newVC);
             voiceChannelMaps.put(name, vcList);
 //            System.out.println("added key in map " + name);
-//            Thread.sleep(1000);
         }
 
 

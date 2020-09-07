@@ -3,6 +3,7 @@ import net.dv8tion.jda.api.*;
 import net.dv8tion.jda.api.entities.*;
 
 import net.dv8tion.jda.api.events.guild.voice.*;
+import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 
 
@@ -36,8 +37,10 @@ public class Main extends ListenerAdapter {
     public void onGuildVoiceJoin(GuildVoiceJoinEvent event) {
         Guild guild = event.getGuild();
         VoiceChannel vc = event.getChannelJoined();
+//        System.out.println(vc.getPosition());
         try {
-            addChannel(guild, vc, event.getMember());
+            addChannel(guild, vc);
+
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -54,7 +57,7 @@ public class Main extends ListenerAdapter {
             e.printStackTrace();
         }
     }
-
+    @Override
     public void onGuildVoiceMove(GuildVoiceMoveEvent event) {
 //        System.out.println("Moved");
         Guild guild = event.getGuild();
@@ -67,15 +70,17 @@ public class Main extends ListenerAdapter {
             e.printStackTrace();
         }
 
-
+        // if someone leaves a vc before they are moved
         try {
-            addChannel(guild, vcJoined, event.getMember());
+            addChannel(guild, vcJoined);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+    }
+    @Override
+    public void onMessageReceived(MessageReceivedEvent event) {
 
-
-
+        removeEmptyChannels();
     }
 
 
@@ -88,54 +93,52 @@ public class Main extends ListenerAdapter {
         // if channel name doesn't end with n then they were just moved so it does nothing
 
 
-        String ogName = vc.getName();
-        if (!endsWithNumber(ogName)) {
-            //they have been moved
-            return;
-        }
-        String name = removeNum(ogName);
-        List<VoiceChannel> vcRemove = voiceChannelMaps.get(name);
-        List<VoiceChannel> vcNew = new LinkedList<>();
-        boolean removedFlag = false;
-
-        if (vc.getMembers().size() == 0) {
-            for (int i = 0; i < vcRemove.size(); i++) {
-                // if someone leaving means channel is empty then remove channel and set flag
-//                System.out.print("at " + i + " ");
-                VoiceChannel currentVC = vcRemove.get(i);
-
-                if (removedFlag) {
-                    String channelName = name + " " + (i + 1);
-//                    System.out.print("renamed channel " + currentVC.getName() + " to ");
-                    currentVC.getManager().setName(channelName).complete();
-//                    System.out.println(currentVC.getName());
-                    vcNew.add(currentVC);
-                } else {
-
-                    if (currentVC.getMembers().size() == 0) {
-                        currentVC.delete().complete();
-                        vcRemove.remove(i);
-//                        System.out.println("removed channel " + currentVC.getName());
-                        i--;
-                        removedFlag = true;
-                    } else {
-                        vcNew.add(currentVC);
-                    }
-                }
-
-//                System.out.println();
-                // if removed then change names
-            }
-
-            if (vcNew.size() == 0) {
-//            System.out.println(name + " removed from map");
-                voiceChannelMaps.remove(name);
-            } else {
-                voiceChannelMaps.put(name, vcNew);
-            }
-        }
-
-
+//        String ogName = vc.getName();
+//        if (!endsWithNumber(ogName)) {
+//            //they have been moved
+//            return;
+//        }
+//        String name = removeNum(ogName);
+//        List<VoiceChannel> vcRemove = voiceChannelMaps.get(name);
+//        List<VoiceChannel> vcNew = new LinkedList<>();
+//        boolean removedFlag = false;
+//
+//        if (vc.getMembers().size() == 0) {
+//            for (int i = 0; i < vcRemove.size(); i++) {
+//                // if someone leaving means channel is empty then remove channel and set flag
+////                System.out.print("at " + i + " ");
+//                VoiceChannel currentVC = vcRemove.get(i);
+//
+//                if (removedFlag) {
+//                    String channelName = name + " " + (i + 1);
+////                    System.out.print("renamed channel " + currentVC.getName() + " to ");
+//                    currentVC.getManager().setName(channelName).complete();
+////                    System.out.println(currentVC.getName());
+//                    vcNew.add(currentVC);
+//                } else {
+//
+//                    if (currentVC.getMembers().size() == 0) {
+//                        currentVC.delete().complete();
+//                        vcRemove.remove(i);
+////                        System.out.println("removed channel " + currentVC.getName());
+//                        i--;
+//                        removedFlag = true;
+//                    } else {
+//                        vcNew.add(currentVC);
+//                    }
+//                }
+//
+////                System.out.println();
+//                // if removed then change names
+//            }
+//
+//            if (vcNew.size() == 0) {
+////            System.out.println(name + " removed from map");
+//                voiceChannelMaps.remove(name);
+//            } else {
+//                voiceChannelMaps.put(name, vcNew);
+//            }
+//        }
 
 
 
@@ -143,7 +146,9 @@ public class Main extends ListenerAdapter {
 
 
 
-        /*Version 1.0
+
+
+//        /*Version 1.0
 //        System.out.println("left channel " + vc.getName());
         String ogName = vc.getName();
         String name;
@@ -152,7 +157,10 @@ public class Main extends ListenerAdapter {
         } else {
             name = ogName;
         }
-
+        if (!voiceChannelMaps.containsKey(name)) {
+            removeEmptyChannels();
+            return;
+        }
         List<VoiceChannel> vcRemove = voiceChannelMaps.get(name);
         List<VoiceChannel> vcNew = new LinkedList<>();
         boolean removedFlag = false;
@@ -210,51 +218,70 @@ public class Main extends ListenerAdapter {
         } else {
             voiceChannelMaps.put(name, vcNew);
         }
-        */
+
 
     }
 
-    private void addChannel(Guild guild,VoiceChannel vc,  Member member) throws InterruptedException {
+    private void addChannel(Guild guild,VoiceChannel vc) throws InterruptedException {
         //Version 1.1
 
         // When someone joins channel "Channel Name" it creates a new channel called "Channel Name n" and moves them there
         // If it ends with a number do nothing
 
-        String ogName = vc.getName();
-        if (endsWithNumber(ogName)) {
-            return;
-        }
-        // only creates when it joins an og channel
-        List<VoiceChannel> vcList;
-        VoiceChannel newVC;
-        if (voiceChannelMaps.containsKey(ogName)) {
-            vcList = voiceChannelMaps.get(ogName);
-            int newNum = vcList.size()+1;
-            newVC = vc.createCopy(guild).setName(ogName + " " + newNum).complete();
+//        String ogName = vc.getName();
+//        if (endsWithNumber(ogName)) {
+//            return;
+//        }
+//        // only creates when it joins an og channel
+//        List<VoiceChannel> vcList;
+//        VoiceChannel newVC;
+//        if (voiceChannelMaps.containsKey(ogName)) {
+//            vcList = voiceChannelMaps.get(ogName);
+//            int newNum = vcList.size()+1;
+//            newVC = vc.createCopy(guild).setName(ogName + " " + newNum).complete();
+//
+//
+//        } else {
+//            // add a linked list of voice channels
+//            vcList = new LinkedList<>();
+//            newVC = vc.createCopy(guild).setName(ogName + " " + 1).complete();
+////            System.out.println("added channel " + newName(ogName));
+////            System.out.println("added key in map " + name);
+//        }
+////        System.out.println("OG VC POSITION IS: " + vc.getPosition());
+//        int decrement = 0;
+//        int newPosition = vc.getPositionRaw();
+//        // if we left a voice channel
+////        if (vcLeft != null) {
+////            // if that vc still has channels
+////            if (voiceChannelMaps.containsKey(vcLeft.getName())) {
+////
+////                decrement = voiceChannelMaps.get(vcLeft.getName()).size()+1;
+////            } else {
+////                // if vcList no longer exists (there was only 1 channel when we left)
+////                // if the vc we left was before the vc we joined then we need to make up for cache
+////                if (vcLeft.getPosition() < vc.getPosition())
+////                    decrement = 1;
+////            }
+////
+////            newPosition = (vc.getPosition() <= decrement) ? decrement : vc.getPositionRaw()-decrement;
+////        } else {
+////            newPosition = vc.getPositionRaw();
+////        }
+//
+//        newVC.getManager().setPosition(newPosition).complete();
+//        guild.moveVoiceMember(member, newVC).complete();
+//        vcList.add(newVC);
+//        voiceChannelMaps.put(ogName, vcList);
 
 
-        } else {
-            // add a linked list of voice channels
-            vcList = new LinkedList<>();
-            newVC = vc.createCopy(guild).setName(ogName + " " + 1).complete();
-//            System.out.println("added channel " + newName(ogName));
-//            System.out.println("added key in map " + name);
-        }
-//        System.out.println("OG VC POSITION IS: " + vc.getPosition());
-        int newPosition = vc.getPositionRaw();
-        newVC.getManager().setPosition(newPosition).complete();
-        guild.moveVoiceMember(member, newVC).complete();
-        vcList.add(newVC);
-        voiceChannelMaps.put(ogName, vcList);
 
 
 
 
 
 
-
-
-        /*
+//        /*
         //Version 1.0
 //        System.out.println("joined channel " + vc.getName());
         String ogName = vc.getName();
@@ -280,7 +307,7 @@ public class Main extends ListenerAdapter {
 
                 String channelName = name + ' ' + (arrayofChannels.length + 1);
                 VoiceChannel newVC = vc.createCopy(guild).setName(channelName).complete();
-                newVC.getManager().setPosition(ogVC.getPosition() + arrayofChannels.length-1).complete();
+                newVC.getManager().setPosition(ogVC.getPositionRaw() + arrayofChannels.length-1).complete();
                 currentChannels.add(newVC);
 //                System.out.println("added channel " + channelName);
             } else {
@@ -291,13 +318,13 @@ public class Main extends ListenerAdapter {
             // add a linked list of voice channels
             List<VoiceChannel> vcList = new LinkedList<>();
             VoiceChannel newVC = vc.createCopy(guild).setName(newName(vc.getName())).complete();
-            newVC.getManager().setPosition(vc.getPosition()).complete();
+            newVC.getManager().setPosition(vc.getPositionRaw()).complete();
 //            System.out.println("added channel " + newName(ogName));
             vcList.add(newVC);
             voiceChannelMaps.put(name, vcList);
 //            System.out.println("added key in map " + name);
         }
-        */
+//        */
 
     }
 
@@ -325,6 +352,38 @@ public class Main extends ListenerAdapter {
             }
         }
         return name.substring(0, lastChar-1);
+    }
+
+    private String newName(String name) {
+        String lastChar = name.substring(name.length()-1);
+        String newName = "";
+        if (isInteger(lastChar)) {
+            int newNum = Integer.parseInt(lastChar) + 1;
+            newName = name.substring(0,name.length() - 1) + newNum;
+        } else {
+            newName = name + " 1";
+        }
+        return newName;
+    }
+
+    private void removeEmptyChannels() {
+        for (Map.Entry<String, List<VoiceChannel>> entry : voiceChannelMaps.entrySet() ) {
+            List<VoiceChannel> vcList = entry.getValue();
+            List<VoiceChannel> vcNew = new LinkedList<>();
+            for (VoiceChannel vc : vcList) {
+                if (vc.getMembers().size() > 0) {
+                    vcNew.add(vc);
+                } else {
+                    vc.delete().complete();
+                }
+            }
+            if (vcNew.size() == 0) {
+                voiceChannelMaps.remove(entry.getKey());
+            } else {
+                voiceChannelMaps.put(entry.getKey(), vcNew);
+
+            }
+        }
     }
 
 }

@@ -37,7 +37,7 @@ public class Main extends ListenerAdapter {
         Guild guild = event.getGuild();
         VoiceChannel vc = event.getChannelJoined();
         try {
-            addChannel(guild, vc, null, event.getMember());
+            addChannel(guild, vc, event.getMember());
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -69,7 +69,7 @@ public class Main extends ListenerAdapter {
 
 
         try {
-            addChannel(guild, vcJoined, vcLeft, event.getMember());
+            addChannel(guild, vcJoined, event.getMember());
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -214,7 +214,7 @@ public class Main extends ListenerAdapter {
 
     }
 
-    private void addChannel(Guild guild,VoiceChannel vc, VoiceChannel vcLeft,  Member member) throws InterruptedException {
+    private void addChannel(Guild guild,VoiceChannel vc,  Member member) throws InterruptedException {
         //Version 1.1
 
         // When someone joins channel "Channel Name" it creates a new channel called "Channel Name n" and moves them there

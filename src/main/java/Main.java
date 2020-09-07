@@ -37,19 +37,13 @@ public class Main extends ListenerAdapter {
         Guild guild = event.getGuild();
         VoiceChannel vc = event.getChannelJoined();
         try {
-            addChannel(guild, vc);
+            addChannel(guild, vc, null, event.getMember());
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-
-
-//        int userlimit = vc.getUserLimit();
-//        guild.getnewName(vc.getName());
-
-//        System.out.println(newName(newVC.getName()));
-
-
     }
+
+
     @Override
     public void onGuildVoiceLeave(GuildVoiceLeaveEvent event) {
         Guild guild = event.getGuild();
@@ -75,7 +69,7 @@ public class Main extends ListenerAdapter {
 
 
         try {
-            addChannel(guild, vcJoined);
+            addChannel(guild, vcJoined, vcLeft, event.getMember());
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -86,6 +80,70 @@ public class Main extends ListenerAdapter {
 
 
     private void removeChannel(Guild guild, VoiceChannel vc) throws InterruptedException {
+
+        //Version 1.1
+
+        // When someone leave channel "Channel Name n" it checks if that channel is empty
+        // if it is then it removes that channel and renames everything else to be consistent
+        // if channel name doesn't end with n then they were just moved so it does nothing
+
+
+        String ogName = vc.getName();
+        if (!endsWithNumber(ogName)) {
+            //they have been moved
+            return;
+        }
+        String name = removeNum(ogName);
+        List<VoiceChannel> vcRemove = voiceChannelMaps.get(name);
+        List<VoiceChannel> vcNew = new LinkedList<>();
+        boolean removedFlag = false;
+
+        if (vc.getMembers().size() == 0) {
+            for (int i = 0; i < vcRemove.size(); i++) {
+                // if someone leaving means channel is empty then remove channel and set flag
+//                System.out.print("at " + i + " ");
+                VoiceChannel currentVC = vcRemove.get(i);
+
+                if (removedFlag) {
+                    String channelName = name + " " + (i + 1);
+//                    System.out.print("renamed channel " + currentVC.getName() + " to ");
+                    currentVC.getManager().setName(channelName).complete();
+//                    System.out.println(currentVC.getName());
+                    vcNew.add(currentVC);
+                } else {
+
+                    if (currentVC.getMembers().size() == 0) {
+                        currentVC.delete().complete();
+                        vcRemove.remove(i);
+//                        System.out.println("removed channel " + currentVC.getName());
+                        i--;
+                        removedFlag = true;
+                    } else {
+                        vcNew.add(currentVC);
+                    }
+                }
+
+//                System.out.println();
+                // if removed then change names
+            }
+
+            if (vcNew.size() == 0) {
+//            System.out.println(name + " removed from map");
+                voiceChannelMaps.remove(name);
+            } else {
+                voiceChannelMaps.put(name, vcNew);
+            }
+        }
+
+
+
+
+
+
+
+
+
+        /*Version 1.0
 //        System.out.println("left channel " + vc.getName());
         String ogName = vc.getName();
         String name;
@@ -146,15 +204,58 @@ public class Main extends ListenerAdapter {
                 // if removed then change names
             }
         }
-        if (vcRemove.size() == 0) {
+        if (vcNew.size() == 0) {
 //            System.out.println(name + " removed from map");
             voiceChannelMaps.remove(name);
         } else {
             voiceChannelMaps.put(name, vcNew);
         }
+        */
+
     }
 
-    private void addChannel(Guild guild,VoiceChannel vc) throws InterruptedException {
+    private void addChannel(Guild guild,VoiceChannel vc, VoiceChannel vcLeft,  Member member) throws InterruptedException {
+        //Version 1.1
+
+        // When someone joins channel "Channel Name" it creates a new channel called "Channel Name n" and moves them there
+        // If it ends with a number do nothing
+
+        String ogName = vc.getName();
+        if (endsWithNumber(ogName)) {
+            return;
+        }
+        // only creates when it joins an og channel
+        List<VoiceChannel> vcList;
+        VoiceChannel newVC;
+        if (voiceChannelMaps.containsKey(ogName)) {
+            vcList = voiceChannelMaps.get(ogName);
+            int newNum = vcList.size()+1;
+            newVC = vc.createCopy(guild).setName(ogName + " " + newNum).complete();
+
+
+        } else {
+            // add a linked list of voice channels
+            vcList = new LinkedList<>();
+            newVC = vc.createCopy(guild).setName(ogName + " " + 1).complete();
+//            System.out.println("added channel " + newName(ogName));
+//            System.out.println("added key in map " + name);
+        }
+//        System.out.println("OG VC POSITION IS: " + vc.getPosition());
+        int newPosition = vc.getPositionRaw();
+        newVC.getManager().setPosition(newPosition).complete();
+        guild.moveVoiceMember(member, newVC).complete();
+        vcList.add(newVC);
+        voiceChannelMaps.put(ogName, vcList);
+
+
+
+
+
+
+
+
+        /*
+        //Version 1.0
 //        System.out.println("joined channel " + vc.getName());
         String ogName = vc.getName();
         String name;
@@ -196,7 +297,7 @@ public class Main extends ListenerAdapter {
             voiceChannelMaps.put(name, vcList);
 //            System.out.println("added key in map " + name);
         }
-
+        */
 
     }
 
@@ -226,276 +327,4 @@ public class Main extends ListenerAdapter {
         return name.substring(0, lastChar-1);
     }
 
-    private String newName(String name) {
-        String lastChar = name.substring(name.length()-1);
-        String newName = "";
-        if (isInteger(lastChar)) {
-            int newNum = Integer.parseInt(lastChar) + 1;
-            newName = name.substring(0,name.length() - 1) + newNum;
-        } else {
-            newName = name + " 1";
-        }
-        return newName;
-    }
-//    public void onMessageReceived(MessageReceivedEvent event) {
-//        HashMap<String, Integer> roles = new HashMap<>();
-//        String author = event.getAuthor().getId();
-//
-//        List<Role> role =  event.getGuild().getMemberById(author).getRoles();
-//        for (Role r : role) {
-//            roles.put(r.getName(),0);
-//        }
-//
-//        Instant end = Instant.now();
-//        timeElapsed = Duration.between(start, end);
-//        if (timeElapsed.toMinutes() >= 5) {
-//            players = new ArrayList<>();
-//            started = false;
-//        }
-//
-//        Message message = event.getMessage();
-//
-//
-//        EmbedBuilder embedBuilder = new EmbedBuilder();
-//        channel = event.getChannel();
-//
-//        if (event.getAuthor().getId().equals(botid) && message.getContentRaw().equals(joinMessage)) {
-//
-//            if (tournament_message.length() > 2) {
-//                channel.deleteMessageById(tournament_message).queue();
-//            }
-//
-//            tournament_message = message.getId();
-//        }
-//
-//        if (event.getChannel().getName().equals("general") && !event.getAuthor().getId().equals(botid) && roles.containsKey("Player") ) {
-//            Guild guild = event.getGuild();
-//            String content = message.getContentRaw();
-//            String[] split = content.split("\\s+", -1);
-//            List<Member> mentioned = message.getMentionedMembers();
-//
-//
-//
-//            if (isTarget(split[0], botid) && split[1].toLowerCase().equals("help")) {
-//
-//                embedBuilder.setTitle("How this bot works", null);
-//                embedBuilder.setDescription("This is a bot which helps create teams for a 2's tourneys. The lobby will be reset after 5 minutes of creating the teams. This bot can only be used by people with the player role");
-//                embedBuilder.addField("Commands", "new, add, addfromvc, remove, remix, restart. All commands (except 'addfromvc') work by first @ing tourneyBot typing the command and then passing arguments", false);
-//                embedBuilder.addField("new", "tourneyBot writes a message and anyone who reacts to it will be added to the tourney lobby", true);
-//                embedBuilder.addField("add", "Anyone can add anyone else into the lobby by calling this command and @ing whoever they want to join", true);
-//                embedBuilder.addField("addfromvc", "All players in the same voice channel as the player who calls this is added to the tournament", true);
-//                embedBuilder.addField("remove", "Anyone can remove anyone else into the lobby by calling this command and @ing whoever they want to leave", true);
-//                embedBuilder.addField("remix", "remixes the teams", true);
-//                embedBuilder.addField("restart", "recreates the lobby", true);
-//                embedBuilder.addField("end", "destroys the lobby", true);
-//                embedBuilder.addField("help", "shows the help message", true);
-//                embedBuilder.addField("debug", "shows who's currently in the lobby", true);
-//                MessageEmbed m = embedBuilder.build();
-//
-//                channel.sendMessage(m).queue();
-//                return;
-//            }
-//
-//            if (isTarget(split[0], botid) && split[1].toLowerCase().equals("debug")) {
-//                String s = "```" + "\n";
-//                for (String p : players) {
-//                    s += p + "\n";
-//                    System.out.println(p);
-//                }
-//                s += "```";
-//                channel.sendMessage(s).queue();
-//                return;
-//            }
-//            if (isTarget(split[0], botid) && split[1].toLowerCase().equals("end")) {
-//                channel.sendMessage("Lobby destroyed, thanks for that <@!" + author + ">" ).queue();
-//                players = new ArrayList<>();
-//                started = false;
-//                return;
-//            }
-//            if (isTarget(split[0], botid) && split[1].toLowerCase().equals("remove")){
-//                for (Member m : mentioned) {
-//                    if (players.contains(getName(m))) {
-//                        System.out.println("Player: " + getName(m) + " has been removed. Number of players is  : " + (players.size()+1));
-//                        players.remove(getName(m));
-//                        channel.sendMessage(getName(m) + " has been removed from queue").queue();
-//                    }
-//                }
-//                if (players.size() < numofplayers) {
-//                    started = false;
-//                }
-//                return;
-//
-//            }
-//
-//            if (!started) {
-//
-//                if (isTarget(split[0], botid) && split[1].toLowerCase().equals("addfromvc")) {
-//                    try {
-//                        VoiceChannel vc = Objects.requireNonNull(Objects.requireNonNull(event.getMember()).getVoiceState()).getChannel();
-//                        if (vc != null) {
-//                            List<Member> membersInVc = vc.getMembers();
-//
-//                            addPlayer(membersInVc);
-//                            channel.sendMessage("```Added all players in " + vc.getName() + "```").queue();
-//
-//                        }
-//
-//                    } catch (NullPointerException ne) {
-//                        ne.printStackTrace();
-//                    }
-//                    return;
-//                }
-//
-//                if (isTarget(split[0], botid) && split[1].toLowerCase().equals("new")) {
-//                    channel.sendMessage("```Starting new tournament```").queue();
-//                    String m = joinMessage;
-//
-//                    channel.sendMessage(m).queue(message1 -> {message1.addReaction(EmojiParser.parseToUnicode(":thumbsup:")).queue();});
-//                    return;
-//                }
-//                if (isTarget(split[0], botid) && split[1].toLowerCase().equals("add")){
-//                   addPlayer(mentioned);
-//                    return;
-//
-//                }
-//            } else {
-//                if (isTarget(split[0], botid) && split[1].toLowerCase().equals("remix")) {
-//                    createTournament();
-//                    return;
-//                }
-//                if (isTarget(split[0], botid) && split[1].toLowerCase().equals("restart")) {
-//                    players = new ArrayList<>();
-//                    started = false;
-//                    String m = joinMessage;
-//
-//                    channel.sendMessage(m).queue();
-//                    return;
-//                }
-//
-//            }
-//
-//
-//
-//
-//            // if next word is !r (for random) or !c (for captains)
-//            // enter all players names
-//
-//            // (random team generator)
-//            // create random 2s teams.
-//            // create a bracket
-//            // give :thumbsup: and :thumbsdown: to vote
-//            // if more than half thumbs down then recreate the teams
-//
-//            // directly implement results into ladder
-//
-//
-//
-//        }
-//    }
-//
-//    public void onMessageReactionAdd(MessageReactionAddEvent event) {
-//        if (!event.getUserId().equals(botid) && event.getMessageId().equals(tournament_message)) {
-//            Guild guild = event.getGuild();
-//            Member member = guild.getMember((event.getUser()));
-//            if (!players.contains(getName(member)) && players.size() < numofplayers) {
-//                players.add(getName(member));
-//                if (players.size() == numofplayers) {
-//                    createTournament();
-//                }
-//            }
-//
-//        }
-//
-//
-//    }
-//    public void onMessageReactionRemove(MessageReactionRemoveEvent event) {
-//        if (event.getMessageId().equals(tournament_message)) {
-//            Guild guild = event.getGuild();
-//            Member member = guild.getMember((event.getUser()));
-//            players.remove(getName(member));
-//        }
-//
-//    }
-//
-//    private String getName(Member member)
-//    {
-//        return member.getEffectiveName().replaceAll(" \".*\" ", " ");
-//    }
-//
-//    private boolean isTarget(String arg, String id) {
-////        for (String arg : args) {
-//        if (arg.equals("<@!"+id+">")||arg.equals("<@"+id+">")) {
-//            return true;
-//        }
-////        }
-//        return false;
-//    }
-//
-//    private void addPlayer(List<Member> members) {
-//        for (Member m : members) {
-//            if (!m.getId().equals(botid) && !players.contains(getName(m))) {
-//                System.out.println("Player: " + getName(m) + " has been added. Number of players is  : " + (players.size()+1));
-//                if (players.size() < numofplayers) {
-//                    players.add(getName(m));
-//                    if (players.size() == numofplayers) {
-//                        createTournament();
-//                    }
-//                }
-//            }
-//
-//        }
-//        if (players.size() < numofplayers) {
-//
-//            String m = joinMessage;
-//            channel.sendMessage(m).queue(message1 -> {message1.addReaction(EmojiParser.parseToUnicode(":thumbsup:")).queue();});
-//        }
-//    }
-//    private void createTournament() {
-//        //get players
-//        start = Instant.now();
-//        started = true;
-//        List<String> currentplayers = new ArrayList<>();
-//        for (String player : players) {
-//            currentplayers.add(player);
-//        }
-//        System.out.println("Start tournament also players .size() = " + players.size());
-//        Set<String> team1 = new HashSet<>();
-//        Set<String> team2 = new HashSet<>();
-//        Set<String> team3 = new HashSet<>();
-//        Set<String> team4 = new HashSet<>();
-//        Random rand = new Random();
-//        String[] ordered = new String[currentplayers.size()];
-//
-//
-//
-//        int i = 0;
-//        while (currentplayers.size() > 0) {
-//            int r = rand.nextInt(currentplayers.size());
-//            System.out.println("R is: " + r + " Player is: " + currentplayers.get(r) + " i is: " + i);
-//            ordered[i] = currentplayers.get(r);
-//            currentplayers.remove(r);
-//            i++;
-//        }
-//        for (int n = 0; n < ordered.length; n++){
-//            System.out.println(ordered[n]);
-//        }
-//        team1.add(ordered[0]);
-//        team1.add(ordered[1]);
-//        team2.add(ordered[2]);
-//        team2.add(ordered[3]);
-//        team3.add(ordered[4]);
-//        team3.add(ordered[5]);
-//        team4.add(ordered[6]);
-//        team4.add(ordered[7]);
-//
-//
-//        // print teams and brackets
-//
-//        String message = "```\nTeam 1: " + ordered[0] + " and " + ordered[1] + "\n" +
-//                "Team 2: " + ordered[2] + " and " + ordered[3] + "\n" +
-//                "Team 3: " + ordered[4] + " and " + ordered[5] + "\n" +
-//                "Team 4: " + ordered[6] + " and " + ordered[7] + " ```";
-//        channel.sendMessage(message).queue();
-//        System.out.println("players.size() is now = " + players.size());
-//    }
 }

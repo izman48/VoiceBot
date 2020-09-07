@@ -22,7 +22,7 @@ public class Main extends ListenerAdapter {
 
     public static void main(String[] args) throws Exception {
         try {
-            BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(new File("../VoiceToken")), "UTF8"));
+            BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(new File("../Token/voiceToken")), "UTF8"));
             builder = new JDABuilder(AccountType.BOT).setToken(reader.readLine()).build();
             reader.close();
             builder.addEventListener(new Main());

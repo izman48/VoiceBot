@@ -369,9 +369,28 @@ public class Main extends ListenerAdapter {
     private void removeEmptyChannels() {
         for (Map.Entry<String, List<VoiceChannel>> entry : voiceChannelMaps.entrySet() ) {
             List<VoiceChannel> vcList = entry.getValue();
+
+            int emptyChannel = 0;
+            boolean flag = false;
+            for (int i = 0; i < vcList.size(); i++) {
+                VoiceChannel vc = vcList.get(i);
+                if (vc.getMembers().size() == 0 && flag) {
+                    break;
+                }
+                if (vc.getMembers().size() == 0 && !flag) {
+                    flag = true;
+                    emptyChannel = i;
+                }
+            }
+
+
             List<VoiceChannel> vcNew = new LinkedList<>();
-            for (VoiceChannel vc : vcList) {
-                if (vc.getMembers().size() > 0) {
+            for (int i = 0; i < vcList.size(); i++) {
+                VoiceChannel vc = vcList.get(i);
+                if (i == emptyChannel) {
+                    vcNew.add(vc);
+                    continue;
+                }    if (vc.getMembers().size() > 0) {
                     vcNew.add(vc);
                 } else {
                     vc.delete().complete();
@@ -385,5 +404,6 @@ public class Main extends ListenerAdapter {
             }
         }
     }
+
 
 }

@@ -18,14 +18,21 @@ import java.util.*;
 /// hashmap of og vc and matches id to linked list
 public class Main extends ListenerAdapter {
     private static JDA builder;
+    private static List<String> myID = new ArrayList<>();
+
+    private static String botID = "751047187626197012";
     private Map<String, List<VoiceChannel>> voiceChannelMaps = new HashMap<>();
 
     public static void main(String[] args) throws Exception {
         try {
+
             BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(new File("../Token/voiceToken")), "UTF8"));
             builder = new JDABuilder(AccountType.BOT).setToken(reader.readLine()).build();
             reader.close();
+            myID.add("399120960906854411"); //me
+            myID.add("259031785759965185"); //walden
             builder.addEventListener(new Main());
+//            System.out.println("started");
 
 
         } catch (Exception e) {
@@ -79,10 +86,69 @@ public class Main extends ListenerAdapter {
     }
     @Override
     public void onMessageReceived(MessageReceivedEvent event) {
+        String user = event.getAuthor().getId();
+        MessageChannel channel = event.getChannel();
+        EmbedBuilder embedBuilder = new EmbedBuilder();
+        Guild guild = event.getGuild();
+        String[] words = event.getMessage().getContentRaw().split("\\s+");
+        for (String id: myID) {
+            if (user.equals(id)) {
 
-        removeEmptyChannels();
+                if (isTarget(words[0], botID) && words[1].toLowerCase().equals("help")) {
+
+                    embedBuilder.setTitle("Bot Commands", null);
+                    embedBuilder.setDescription("For the extremely likely event that someone breaks voice channels these commands can be used by admins");
+                    embedBuilder.addField("Commands", "reset, empty, print, empty-safe", false);
+                    embedBuilder.addField("reset", "it removes all channels with a number at the end and resets the memory with a new hashmap", true);
+                    embedBuilder.addField("empty", "it removes all channels with a number at the end", true);
+                    embedBuilder.addField("print", "prints the contents of the memory", true);
+                    embedBuilder.addField("empty-safe", "it iterates through the hashmap and removes any channels that shouldn't have been there, then updates the memory", true);
+
+                    MessageEmbed m = embedBuilder.build();
+
+                    channel.sendMessage(m).complete();
+                    return;
+                }
+                if (isTarget(words[0], botID) && words[1].toLowerCase().equals("reset")) {
+                    printMem(channel);
+                    removeAllChannels(guild);
+                    voiceChannelMaps = new HashMap<>();
+                    return;
+                }
+                if (isTarget(words[0], botID) && words[1].toLowerCase().equals("empty")) {
+                    printMem(channel);
+                    removeAllChannels(guild);
+                    return;
+                }
+                if (isTarget(words[0], botID) && words[1].toLowerCase().equals("print")) {
+                    printMem(channel);
+                    return;
+                }
+                if (isTarget(words[0], botID) && words[1].toLowerCase().equals("empty-safe")) {
+                    printMem(channel);
+                    removeEmptyChannels();
+                    return;
+                }
+            }
+        }
+//        removeEmptyChannels();
     }
-
+    private void printMem(MessageChannel channel) {
+        Set<String> mapSet = voiceChannelMaps.keySet();
+        if (mapSet.isEmpty()) {
+            return;
+        }
+        String print = "";
+        for (String key: mapSet ) {
+            print += ("KEY: " + key + " ");
+            List<VoiceChannel> vcList = voiceChannelMaps.get(key);
+            print += ("VALUE:");
+            for (VoiceChannel vc : vcList) {
+                print += (" " + vc.getName());
+            }
+        }
+        channel.sendMessage(print).complete();
+    }
 
     private void removeChannel(Guild guild, VoiceChannel vc) throws InterruptedException {
 
@@ -366,6 +432,14 @@ public class Main extends ListenerAdapter {
         return newName;
     }
 
+    private void removeAllChannels(Guild guild) {
+        List<VoiceChannel> allChannels = guild.getVoiceChannels();
+        for (VoiceChannel voice: allChannels ) {
+            if (endsWithNumber(voice.getName())) {
+                voice.delete().queue();
+            }
+        }
+    }
     private void removeEmptyChannels() {
         for (Map.Entry<String, List<VoiceChannel>> entry : voiceChannelMaps.entrySet() ) {
             List<VoiceChannel> vcList = entry.getValue();
@@ -403,6 +477,14 @@ public class Main extends ListenerAdapter {
 
             }
         }
+    }
+    private boolean isTarget(String arg, String id) {
+//        for (String arg : args) {
+        if (arg.equals("<@!"+id+">")||arg.equals("<@"+id+">")) {
+            return true;
+        }
+//        }
+        return false;
     }
 
 
